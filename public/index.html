@@ -71,14 +71,14 @@
     function start_websocket() {
       let is_ssl = window.location.protocol == "https:"
 
-      let ws_port = is_ssl ? 8888 : 8001;
+      let ws_port = is_ssl ? 8888 : 8081;
       if (window.location.port != "") {
         ws_port = parseInt(window.location.port) + 1;
       }
 
       let ws_protocol = is_ssl ? "wss://" : "ws://";
-
-      var ws = new WebSocket(ws_protocol + window.location.hostname + ":" + ws_port, "protocolOne");
+      console.log('Connecting to ' + ws_protocol + window.location.hostname + ':' + ws_port);
+      var ws = new WebSocket(ws_protocol + window.location.hostname + ":" + ws_port);
 
       ws.onopen = function (event) {
         context.network = true;

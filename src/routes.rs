@@ -1,15 +1,15 @@
 use std::io::{Cursor, Empty};
-use std::{str, fmt};
 use std::str::FromStr;
+use std::{fmt, str};
 
-use url::Url;
 use serde_json::Value;
-use tiny_http::{Request, Response, Header};
+use tiny_http::{Header, Request, Response};
+use url::Url;
 
 use crate::health_checker::health_checker;
-use crate::State;
-use crate::url_value::UrlValue;
 use crate::url_value::Status::{Healthy, Removed};
+use crate::url_value::UrlValue;
+use crate::State;
 
 type BoxError = Box<dyn std::error::Error>;
 
@@ -19,13 +19,11 @@ pub fn into_json(data: Vec<u8>) -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn into_internal_error<E: fmt::Display>(e: E) -> Response<Cursor<Vec<u8>>> {
-    Response::from_string(e.to_string())
-        .with_status_code(500)
+    Response::from_string(e.to_string()).with_status_code(500)
 }
 
 pub fn into_bad_request<E: fmt::Display>(e: E) -> Response<Cursor<Vec<u8>>> {
-    Response::from_string(e.to_string())
-        .with_status_code(400)
+    Response::from_string(e.to_string()).with_status_code(400)
 }
 
 pub fn not_found() -> Response<Empty> {
@@ -34,12 +32,12 @@ pub fn not_found() -> Response<Empty> {
 
 fn is_valid_url(url: &Url) -> bool {
     if url.cannot_be_a_base() {
-        return false
+        return false;
     }
 
     match url.scheme() {
         "http" | "https" => true,
-        _                => false,
+        _ => false,
     }
 }
 
@@ -50,17 +48,21 @@ pub fn update_url(url: Url, mut request: Request, state: &State) -> Result<(), B
             Err(e) => return request.respond(into_bad_request(e)).map_err(Into::into),
         },
         None => {
-            return request.respond(into_bad_request("missing url parameter")).map_err(Into::into)
-        },
+            return request
+                .respond(into_bad_request("missing url parameter"))
+                .map_err(Into::into)
+        }
     };
 
     if !is_valid_url(&url) {
-        return request.respond(into_bad_request("Invalid url, must be an http/s url")).map_err(Into::into)
+        return request
+            .respond(into_bad_request("Invalid url, must be an http/s url"))
+            .map_err(Into::into);
     }
 
     let mut body = String::new();
     if let Err(e) = request.as_reader().read_to_string(&mut body) {
-        return request.respond(into_bad_request(e)).map_err(Into::into)
+        return request.respond(into_bad_request(e)).map_err(Into::into);
     }
 
     let user_data = if body.is_empty() {
@@ -90,16 +92,14 @@ pub fn update_url(url: Url, mut request: Request, state: &State) -> Result<(), B
 
     // update this value but do not erase
     // the last status written by the health checker
-    let result = database.fetch_and_update(url.as_str(), |old| {
-        match old {
-            Some(old) => {
-                value = serde_json::from_slice(old).unwrap();
-                value.data = user_data.clone();
-                value_bytes = serde_json::to_vec(&value).unwrap();
-                Some(value_bytes.clone())
-            },
-            None => Some(value_bytes.clone()),
+    let result = database.fetch_and_update(url.as_str(), |old| match old {
+        Some(old) => {
+            value = serde_json::from_slice(old).unwrap();
+            value.data = user_data.clone();
+            value_bytes = serde_json::to_vec(&value).unwrap();
+            Some(value_bytes.clone())
         }
+        None => Some(value_bytes.clone()),
     });
 
     match result {
@@ -117,7 +117,7 @@ pub fn update_url(url: Url, mut request: Request, state: &State) -> Result<(), B
             });
 
             request.respond(into_json(value_bytes)).map_err(Into::into)
-        },
+        }
         Ok(Some(_)) => request.respond(into_json(value_bytes)).map_err(Into::into),
         Err(e) => Err(e.into()),
     }
@@ -130,13 +130,17 @@ pub fn read_url(url: Url, request: Request, state: &State) -> Result<(), BoxErro
             Err(e) => return request.respond(into_bad_request(e)).map_err(Into::into),
         },
         None => {
-            return request.respond(into_bad_request("missing url parameter")).map_err(Into::into)
-        },
+            return request
+                .respond(into_bad_request("missing url parameter"))
+                .map_err(Into::into)
+        }
     };
 
     let database = &state.database;
     match database.get(url.as_str()) {
-        Ok(Some(value)) => request.respond(into_json(value.to_vec())).map_err(Into::into),
+        Ok(Some(value)) => request
+            .respond(into_json(value.to_vec()))
+            .map_err(Into::into),
         Ok(None) => request.respond(not_found()).map_err(Into::into),
         Err(e) => request.respond(into_internal_error(e)).map_err(Into::into),
     }
@@ -149,8 +153,10 @@ pub fn delete_url(url: Url, request: Request, state: &State) -> Result<(), BoxEr
             Err(e) => return request.respond(into_bad_request(e)).map_err(Into::into),
         },
         None => {
-            return request.respond(into_bad_request("missing url parameter")).map_err(Into::into)
-        },
+            return request
+                .respond(into_bad_request("missing url parameter"))
+                .map_err(Into::into)
+        }
     };
 
     let database = &state.database;
@@ -171,8 +177,10 @@ pub fn delete_url(url: Url, request: Request, state: &State) -> Result<(), BoxEr
             };
             let _ = event_sender.send(message);
 
-            request.respond(into_json(value_bytes.to_vec())).map_err(Into::into)
-        },
+            request
+                .respond(into_json(value_bytes.to_vec()))
+                .map_err(Into::into)
+        }
         Ok(None) => request.respond(not_found()).map_err(Into::into),
         Err(e) => request.respond(into_internal_error(e)).map_err(Into::into),
     }
