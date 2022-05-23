@@ -47,6 +47,12 @@ fn main() -> Result<(), io::Error> {
         }
     };
 
+    let html_content = if let Some(ws_port) = ws_listen_addr.split(':').nth(1) {
+        HTML_CONTENT.replace("is_ssl ? 8888 : 8081", ws_port)
+    } else {
+        HTML_CONTENT.to_string()
+    };
+
     let http_listen_addr = match env::var(HTTP_LISTEN_ADDR) {
         Ok(addr) => addr,
         Err(e) => {
@@ -174,7 +180,7 @@ fn main() -> Result<(), io::Error> {
 
     let server = tiny_http::Server::http(http_listen_addr).unwrap();
     let http_listen_addr = server.server_addr();
-    eprintln!("Listening on {}", http_listen_addr);
+    eprintln!("Listening on http://{}", http_listen_addr);
 
     let base_url = format!("http://{}", http_listen_addr);
     let base_url = Url::parse(&base_url).unwrap();
@@ -209,7 +215,7 @@ fn main() -> Result<(), io::Error> {
             ("/all", &Method::Get) => get_all_urls(url, request, &state),
             ("/", &Method::Get) => {
                 if request.headers().iter().any(accept_text_html) {
-                    let response = Response::from_string(HTML_CONTENT)
+                    let response = Response::from_string(html_content.clone())
                         .with_header(
                             Header::from_str("Content-Type: text/html; charset=utf-8").unwrap(),
                         )
